@@ -33,3 +33,6 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  - name: Install dependencies
+  working-directory: ./smart_medicine_finder
+  run: flutter pub get
