@@ -1,0 +1,44 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    // Prescription Requests: Patient or assigned pharmacy can access
+    match /prescription_requests/{requestId} {
+      allow read: if isAuthenticated() && (
+        resource.data.patientId == request.auth.uid ||
+        resource.data.pharmacyId == request.auth.uid
+      );
+      
+      // Patient creates request with their own UID
+      allow create: if isAuthenticated() && request.resource.data.patientId == request.auth.uid;
+      
+      // Patient or Pharmacy can update status/notes
+      allow update: if isAuthenticated() && (
+        resource.data.patientId == request.auth.uid ||
+        resource.data.pharmacyId == request.auth.uid
+      );
+
+      // Real-time chat messages subcollection
+      match /messages/{messageId} {
+        allow read, create: if isAuthenticated() && (
+          get(/databases/$(database)/documents/prescription_requests/$(requestId)).data.patientId == request.auth.uid ||
+          get(/databases/$(database)/documents/prescription_requests/$(requestId)).data.pharmacyId == request.auth.uid
+        );
+      }
+    }
+    
+    // Pharmacy notifications collection
+    match /pharmacy_notifications/{notifId} {
+      allow read, update: if isAuthenticated() && resource.data.pharmacyId == request.auth.uid;
+      allow create: if isAuthenticated();
+    }
+  }
+}
